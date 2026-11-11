@@ -1,4 +1,3 @@
-[mmmammamaaa.html](https://github.com/user-attachments/files/34689256/mmmammamaaa.html)
 <!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
