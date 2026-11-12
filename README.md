@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>똥스타그램</title>
@@ -17,7 +16,7 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var
 #main{max-width:470px;margin:0 auto;padding-bottom:70px}
 nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--bd);display:flex;justify-content:space-around;padding:6px 0 calc(6px + env(safe-area-inset-bottom,0px));z-index:5}
 nav.hide{display:none}
-nav button{background:none;border:0;font-size:26px;cursor:pointer;padding:2px 16px}
+nav button{background:none;border:0;font-size:24px;cursor:pointer;padding:2px 10px}
 .auth{display:flex;flex-direction:column;gap:10px;padding:48px 28px;text-align:center}
 input,textarea{font-family:inherit;width:100%;padding:11px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);font-size:15px}
 .pri{background:var(--bl);color:#fff;border:0;border-radius:8px;padding:11px;font-weight:600;font-size:15px;cursor:pointer}
@@ -59,11 +58,22 @@ a{color:var(--bl);cursor:pointer}.err{color:#ed4956;margin:0;min-height:1em}.mu{
 .row{display:flex;gap:18px}.cnt{text-align:center;cursor:pointer}.cnt b{display:block;font-size:16px}.cnt small{color:var(--mu)}
 .bio{padding:0 16px 8px;background:var(--card);white-space:pre-wrap}.bt{display:flex;gap:8px;padding:0 16px 12px;background:var(--card)}.bt .sm{flex:1}
 .sh .ph .sm{border:1px solid var(--bd);color:var(--tx);padding:6px 12px}.sh .ph .pri.sm{border:0;color:#fff}
+.att{display:block;width:140px;max-height:220px;object-fit:cover;border-radius:10px;margin:2px 0 4px;cursor:pointer}
+.rh{display:flex;justify-content:space-between;align-items:center;padding:8px 12px}
+.reels{height:calc(100vh - 150px);height:calc(100dvh - 150px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));overflow-y:scroll;scroll-snap-type:y mandatory;background:#000}
+.rl{height:100%;scroll-snap-align:start;scroll-snap-stop:always;position:relative}
+.rv{position:absolute;inset:0;background-size:cover;background-position:center;background-color:#000}.rv iframe{width:100%;height:100%;border:0}
+.ra{position:absolute;right:8px;bottom:110px;display:flex;flex-direction:column;gap:12px;z-index:2}
+.ra button{background:rgba(0,0,0,.4);border:0;color:#fff;border-radius:22px;padding:8px 10px;font-size:18px;white-space:pre;text-align:center;cursor:pointer;line-height:1.2}
+.rc{position:absolute;left:10px;right:70px;bottom:64px;color:#fff;z-index:2;text-shadow:0 1px 3px #000}.rc b{cursor:pointer}
+.vb{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#0095f6;color:#fff;font-size:9px;font-weight:700;margin-left:3px;vertical-align:middle}
+.pop{padding:8px 12px 0;font-weight:700;color:#ed4956;background:var(--card)}
+.tg{color:#0095f6;cursor:pointer}
 </style></head>
 <body>
 <header><span class="logo">💩 똥스타그램</span></header>
 <div id="main"><p class="empty">불러오는 중...</p></div>
-<nav class="hide" id="nav"><button onclick="go('feed')">🏠</button><button onclick="go('people')">🔍</button><button onclick="go('inbox')">✉️</button><button onclick="sheet('post')">➕</button><button onclick="go('profile',me)">👤</button></nav>
+<nav class="hide" id="nav"><button onclick="go('feed')">🏠</button><button onclick="go('people')">🔍</button><button onclick="go('reels')">🎬</button><button onclick="go('inbox')">✉️</button><button onclick="sheet('post')">➕</button><button onclick="go('profile',me)">👤</button></nav>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
 // ===== 여기에 Supabase 값을 붙여넣으세요 =====
@@ -95,7 +105,7 @@ function makeDb(url,key){
 const $=s=>document.querySelector(s);
 function h(t,a,...c){const e=document.createElement(t);for(const k in a||{}){if(k==='class')e.className=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k])}for(const x of c.flat())if(x!=null)e.append(x.nodeType?x:document.createTextNode(x));return e}
 const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}};
-let db,me=null,P=[],L=[],C=[],S=[],A=[],AC={},R=[],CL=[],SL=[],D=[],q='',view={t:'feed'},rt,stt;
+let db,me=null,P=[],L=[],C=[],S=[],A=[],AC={},R=[],CL=[],SL=[],D=[],RS=[],AS=[],cmDraw=null,q='',view={t:'feed'},rt,stt;
 const fr=()=>new Set(R.filter(r=>r.from===me).map(r=>r.to).concat(me));
 const err=e=>console.error(e);
 async function hash(id,pin){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('dung:'+id+':'+pin));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
@@ -126,7 +136,7 @@ function authScreen(){
   return h('div',{class:'auth'},h('div',{class:'logo big'},'💩 똥스타그램'),h('p',{class:'mu'},'친구들과 사진을 공유해요'),id,pin,msg,b,sw)
 }
 function start(id){
-  me=id;$('#nav').classList.remove('hide');
+  me=id;$('#nav').classList.remove('hide');loadSeen();
   db.collection('posts').orderBy('ts','desc').limit(60).onSnapshot(s=>{P=s.docs.map(d=>({id:d.id,...d.data()}));render()},err);
   db.collection('likes').onSnapshot(s=>{L=s.docs.map(d=>d.data());render()},err);
   db.collection('comments').orderBy('ts','asc').onSnapshot(s=>{C=s.docs.map(d=>({id:d.id,...d.data()}));render()},err);
@@ -136,16 +146,25 @@ function start(id){
   db.collection('clikes').onSnapshot(s=>{CL=s.docs.map(d=>d.data());render()},err);
   db.collection('slikes').onSnapshot(s=>{SL=s.docs.map(d=>d.data());render()},err);
   db.collection('dms').orderBy('ts','asc').onSnapshot(s=>{D=s.docs.map(d=>d.data());render()},err);
+  db.collection('stories').where('u','==',me).onSnapshot(s=>{AS=s.docs.map(d=>({id:d.id,...d.data()}));render()},err);
+  db.collection('reels').orderBy('ts','desc').limit(40).onSnapshot(s=>{RS=s.docs.map(d=>({id:d.id,...d.data()}));render()},err);
   render()
 }
 function go(t,u){view={t,u};close();render();scrollTo(0,0)}
 function render(){
   if(!me)return;
+  if(cmDraw&&$('#ov'))cmDraw();
+  if(view.t==='reels'&&$('#main .reels')&&reelSig===RS.map(r=>r.id).join()){Object.values(reelUpd).forEach(f=>f());return}
   const a=document.activeElement;
   if(a&&a.classList&&a.classList.contains('cin')&&a.value){clearTimeout(rt);rt=setTimeout(render,1500);return}
-  $('#main').replaceChildren(view.t==='feed'?feed():view.t==='people'?people():view.t==='inbox'?inbox():view.t==='dm'?chat(view.u):profile(view.u))
+  $('#main').replaceChildren(view.t==='feed'?feed():view.t==='people'?people():view.t==='inbox'?inbox():view.t==='reels'?reelsView():view.t==='dm'?chat(view.u):profile(view.u))
 }
-function feed(){const F=fr(),ps=P.filter(p=>F.has(p.u));return h('div',{},storyBar(),...(ps.length?ps.map(card):[h('p',{class:'empty'},'팔로우한 사람의 게시물이 보여요. 아래 🔍에서 친구를 찾아 팔로우해봐요 💩')]))}
+function feed(){
+  const F=fr(),ps=P.filter(p=>F.has(p.u)),sc=p=>L.filter(l=>l.p===p.id).length+C.filter(c=>c.p===p.id).length;
+  const pop=ps.filter(p=>Date.now()-p.ts<6048e5&&sc(p)>=POP).sort((a,b)=>sc(b)-sc(a)).slice(0,3),ids=new Set(pop.map(p=>p.id));
+  return h('div',{},storyBar(),...pop.map(p=>h('div',{},h('div',{class:'pop'},'🔥 인기 게시물'),card(p))),...ps.filter(p=>!ids.has(p.id)).map(card),
+    ps.length?null:h('p',{class:'empty'},'팔로우한 사람의 게시물이 보여요. 아래 🔍에서 친구를 찾아 팔로우해봐요 💩'))
+}
 function storyBar(){
   const F=fr(),sn=seen(),by={};
   [...S].filter(s=>F.has(s.u)).forEach(s=>(by[s.u]=by[s.u]||[]).push(s));
@@ -163,21 +182,20 @@ function card(p){
   const inp=h('input',{class:'cin',placeholder:'댓글 달기...',maxlength:200});
   const send=()=>{const t=inp.value.trim();if(!t)return;inp.value='';const d={p:p.id,u:me,t:(rp?'@'+rp.u+' ':'')+t,ts:Date.now()};if(rp)d.pc=rp.pc||rp.id;rp=null;inp.placeholder='댓글 달기...';db.collection('comments').add(d).catch(err)};
   inp.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
-  const clike=c=>{const m=CL.some(l=>l.c===c.id&&l.u===me),n=CL.filter(l=>l.c===c.id).length;return h('button',{class:'ch',onclick:()=>{const r=db.doc('clikes/'+c.id+'_'+me);(m?r.delete():r.set({c:c.id,u:me})).catch(err)}},(m?'❤️':'🤍')+(n?' '+n:''))};
-  const row=(c,sub)=>h('div',{class:'cr'+(sub?' sub':'')},h('div',{style:'flex:1'},h('b',{},c.u+' '),c.t,h('div',{class:'sm2'},ago(c.ts)+'  ',h('a',{onclick:()=>{rp=c;inp.placeholder='@'+c.u+'님에게 답글...';inp.focus()}},'답글 달기'))),clike(c));
+  const reply=c=>{rp=c;inp.placeholder='@'+c.u+'님에게 답글...';inp.focus()};
   return h('article',{class:'card'},
-    h('div',{class:'ph'},av(p.u),h('b',{onclick:()=>go('profile',p.u)},p.u),h('span',{class:'mu'},ago(p.ts)),p.u===me?h('span',{class:'del',onclick:()=>{if(confirm('삭제할까요?'))db.doc('posts/'+p.id).delete().catch(err)}},'삭제'):null),
+    h('div',{class:'ph'},av(p.u),h('b',{onclick:()=>go('profile',p.u)},p.u,vb(p.u)),h('span',{class:'mu'},ago(p.ts)),p.u===me?h('span',{class:'del',onclick:()=>{if(confirm('삭제할까요?'))db.doc('posts/'+p.id).delete().catch(err)}},'삭제'):null),
     h('img',{src:p.img,ondblclick:()=>like(p,mine)}),
     h('div',{class:'act'},h('button',{onclick:()=>like(p,mine)},mine?'❤️':'🤍')),
-    h('div',{class:'pad'},h('b',{},'좋아요 '+lk.length+'개'),p.cap?h('p',{},h('b',{},p.u+' '),p.cap):null,...cm.filter(c=>!c.pc).map(c=>h('div',{},row(c,0),...cm.filter(x=>x.pc===c.id).map(x=>row(x,1))))),
+    h('div',{class:'pad'},h('b',{},'좋아요 '+lk.length+'개'),p.cap?h('p',{},h('b',{},p.u+' '),rich(p.cap)):null,...cRows(cm,reply)),
     h('div',{class:'cw'},inp,h('button',{class:'lk',onclick:send},'게시')))
 }
 function profile(u){
   const mine=P.filter(p=>p.u===u),a=AC[u]||{},fl=R.filter(r=>r.to===u).map(r=>r.from),fg=R.filter(r=>r.from===u).map(r=>r.to);
   const cnt=(n,lab,list)=>h('div',{class:'cnt',onclick:()=>list&&userList(lab,list)},h('b',{},n),h('small',{},lab));
-  return h('div',{},h('div',{class:'pf'},av(u,80),h('div',{style:'flex:1'},h('h2',{},u),h('div',{class:'row'},cnt(mine.length,'게시물'),cnt(fl.length,'팔로워',fl),cnt(fg.length,'팔로잉',fg)))),
-    h('div',{class:'bio'},a.bio||''),
-    h('div',{class:'bt'},...(u===me?[h('button',{class:'sm',onclick:editProfile},'프로필 편집'),h('button',{class:'sm',onclick:()=>{store.set('dung_me',null);location.reload()}},'로그아웃')]:[fbtn(u),h('button',{class:'sm',onclick:()=>go('dm',u)},'메시지')])),
+  return h('div',{},h('div',{class:'pf'},av(u,80),h('div',{style:'flex:1'},h('h2',{},u,vb(u)),h('div',{class:'row'},cnt(mine.length,'게시물'),cnt(fl.length,'팔로워',fl),cnt(fg.length,'팔로잉',fg)))),
+    h('div',{class:'bio'},rich(a.bio||'')),
+    h('div',{class:'bt'},...(u===me?[h('button',{class:'sm',onclick:editProfile},'프로필 편집'),h('button',{class:'sm',onclick:archive},'📦 보관함'),h('button',{class:'sm',onclick:()=>{store.set('dung_me',null);location.reload()}},'로그아웃')]:[fbtn(u),h('button',{class:'sm',onclick:()=>go('dm',u)},'메시지')])),
     h('div',{class:'grid'},...mine.map(p=>h('img',{src:p.img,onclick:()=>overlay(h('div',{style:'width:min(96vw,470px);margin:auto'},card(p)))}))),
     mine.length?null:h('p',{class:'empty'},'아직 게시물이 없어요'))
 }
@@ -188,31 +206,39 @@ function fbtn(u){
 }
 function people(){
   const inp=h('input',{placeholder:'아이디 검색...',value:q,class:'cin'}),list=h('div');
-  const draw=()=>list.replaceChildren(...A.filter(u=>u!==me&&u.includes(q.toLowerCase())).map(u=>h('div',{class:'ph'},av(u,40),h('b',{onclick:()=>go('profile',u)},u),fbtn(u))));
+  const draw=()=>list.replaceChildren(...A.filter(u=>u!==me&&u.includes(q.toLowerCase())).map(u=>h('div',{class:'ph'},av(u,40),h('b',{onclick:()=>go('profile',u)},u,vb(u)),fbtn(u))));
   inp.addEventListener('input',()=>{q=inp.value.trim();draw()});draw();
   return h('div',{},h('div',{style:'padding:10px'},inp),list)
 }
-const seen=()=>{try{return JSON.parse(localStorage.getItem('seen_'+me)||'{}')}catch(e){return{}}};
-const mark=id=>{const x=seen();if(x[id])return;x[id]=1;store.set('seen_'+me,JSON.stringify(x))};
-function sendDm(to,t,re){if(to===me)return;db.collection('dms').add({from:me,to,t,ts:Date.now(),re:re||null}).catch(err)}
+let SN={},snT;
+const seen=()=>SN;
+function loadSeen(){
+  try{SN=JSON.parse(localStorage.getItem('seen_'+me)||'{}')}catch(e){SN={}}
+  db.doc('seen/'+me).get().then(r=>{if(r.exists){(r.data().ids||[]).forEach(i=>SN[i]=1);render()}}).catch(err)
+}
+const mark=id=>{if(SN[id])return;SN[id]=1;store.set('seen_'+me,JSON.stringify(SN));clearTimeout(snT);
+  snT=setTimeout(async()=>{try{const r=db.doc('seen/'+me),x=await r.get(),ids=new Set(Object.keys(SN));if(x.exists)(x.data().ids||[]).forEach(i=>ids.add(i));const live=new Set(S.map(v=>v.id));await r.set({ids:[...ids].filter(i=>!S.length||live.has(i))})}catch(e){err(e)}},1000)};
+function sendDm(to,t,re,x){if(to===me)return;db.collection('dms').add({from:me,to,t,ts:Date.now(),re:re||null,...(x||{})}).catch(err)}
 function inbox(){
   const by={};D.filter(m=>m.from===me||m.to===me).forEach(m=>{const o=m.from===me?m.to:m.from;(by[o]=by[o]||[]).push(m)});
   const us=Object.keys(by).sort((a,b)=>by[b][by[b].length-1].ts-by[a][by[a].length-1].ts);
   return h('div',{},h('h3',{style:'padding:10px 14px;margin:0'},'메시지'),
-    ...(us.length?us.map(u=>{const l=by[u][by[u].length-1];return h('div',{class:'ph',style:'cursor:pointer',onclick:()=>go('dm',u)},av(u,44),h('div',{style:'flex:1'},h('b',{},u),h('div',{class:'mu'},(l.from===me?'나: ':'')+l.t)),h('span',{class:'mu'},ago(l.ts)))}):[h('p',{class:'empty'},'아직 메시지가 없어요. 프로필에서 메시지를 보내봐요')]))
+    ...(us.length?us.map(u=>{const l=by[u][by[u].length-1];return h('div',{class:'ph',style:'cursor:pointer',onclick:()=>go('dm',u)},av(u,44),h('div',{style:'flex:1'},h('b',{},u,vb(u)),h('div',{class:'mu'},(l.from===me?'나: ':'')+l.t)),h('span',{class:'mu'},ago(l.ts)))}):[h('p',{class:'empty'},'아직 메시지가 없어요. 프로필에서 메시지를 보내봐요')]))
 }
 function chat(u){
   const ms=D.filter(m=>(m.from===me&&m.to===u)||(m.from===u&&m.to===me));
   const inp=h('input',{class:'cin',placeholder:'메시지 보내기...',maxlength:500});
   const send=()=>{const t=inp.value.trim();if(!t)return;inp.value='';sendDm(u,t)};
   inp.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+  const att=m=>{if(m.sid){const st=S.find(x=>x.id===m.sid);return st?h('img',{class:'att',src:st.img,onclick:()=>openStory(st.u)}):h('small',{},'(만료된 스토리)')}
+    if(m.v)return h('img',{class:'att',src:'https://i.ytimg.com/vi/'+m.v+'/hqdefault.jpg',onclick:()=>playV(m.v)})};
   setTimeout(()=>scrollTo(0,document.body.scrollHeight),0);
-  return h('div',{},h('div',{class:'ph'},h('a',{onclick:()=>go('inbox')},'‹ 뒤로'),av(u,32),h('b',{onclick:()=>go('profile',u)},u)),
-    h('div',{class:'msgs'},...ms.map(m=>h('div',{class:'m'+(m.from===me?' me':'')},m.re?h('small',{},m.re):null,m.t))),
+  return h('div',{},h('div',{class:'ph'},h('a',{onclick:()=>go('inbox')},'‹ 뒤로'),av(u,32),h('b',{onclick:()=>go('profile',u)},u,vb(u))),
+    h('div',{class:'msgs'},...ms.map(m=>h('div',{class:'m'+(m.from===me?' me':'')},m.re?h('small',{},m.re):null,att(m),rich(m.t)))),
     h('div',{class:'cw'},inp,h('button',{class:'lk',onclick:send},'보내기')))
 }
 function userList(title,list){
-  overlay(h('div',{class:'sh'},h('h3',{},title),...(list.length?list.map(u=>h('div',{class:'ph'},av(u,40),h('b',{onclick:()=>go('profile',u)},u),u===me?null:fbtn(u))):[h('p',{class:'empty'},'아직 없어요')]),h('button',{onclick:close},'닫기')))
+  overlay(h('div',{class:'sh'},h('h3',{},title),...(list.length?list.map(u=>h('div',{class:'ph'},av(u,40),h('b',{onclick:()=>go('profile',u)},u,vb(u)),u===me?null:fbtn(u))):[h('p',{class:'empty'},'아직 없어요')]),h('button',{onclick:close},'닫기')))
 }
 function editProfile(){
   let pic=null;const a=AC[me]||{},box=h('div',{style:'display:flex;justify-content:center'},av(me,90));
@@ -222,6 +248,70 @@ function editProfile(){
   btn.onclick=async()=>{btn.disabled=true;const d={bio:bio.value.trim()};if(pic)d.pic=pic;try{await db.doc('accounts/'+me).update(d);close()}catch(e){err(e);btn.disabled=false}};
   overlay(h('div',{class:'sh'},h('h3',{},'프로필 편집'),box,f,bio,btn,h('button',{onclick:close},'취소')))
 }
+let reelUpd={},reelSig='';
+function loadV(v){if(v.querySelector('iframe'))return;v.append(h('iframe',{src:'https://www.youtube.com/embed/'+v.dataset.v+'?autoplay=1&mute=1&loop=1&playlist='+v.dataset.v+'&playsinline=1&rel=0&modestbranding=1',allow:'autoplay; encrypted-media; picture-in-picture',allowfullscreen:''}))}
+function unloadV(v){const f=v.querySelector('iframe');if(f)f.remove()}
+function playV(v){overlay(h('div',{style:'width:min(92vw,360px);height:80vh'},h('iframe',{src:'https://www.youtube.com/embed/'+v+'?autoplay=1&playsinline=1&rel=0',allow:'autoplay; encrypted-media',style:'width:100%;height:100%;border:0',allowfullscreen:''})))}
+function reelsView(){
+  reelSig=RS.map(r=>r.id).join();reelUpd={};
+  const box=h('div',{class:'reels'});
+  const io=new IntersectionObserver(es=>es.forEach(e=>{const v=e.target.querySelector('.rv');e.isIntersecting?loadV(v):unloadV(v)}),{root:box,threshold:.7});
+  RS.forEach(r=>{
+    const rv=h('div',{class:'rv','data-v':r.vid,style:'background-image:url(https://i.ytimg.com/vi/'+r.vid+'/hqdefault.jpg)',onclick:e=>loadV(e.currentTarget)});
+    const hb=h('button',{}),cb=h('button',{});
+    const upd=()=>{const lk=L.filter(l=>l.p===r.id),m=lk.some(l=>l.u===me);hb.textContent=(m?'❤️':'🤍')+'\n'+lk.length;cb.textContent='💬\n'+C.filter(c=>c.p===r.id).length};
+    hb.onclick=()=>like(r,L.some(l=>l.p===r.id&&l.u===me));
+    cb.onclick=()=>cmSheet(r.id);
+    reelUpd[r.id]=upd;upd();
+    const el=h('section',{class:'rl'},rv,
+      h('div',{class:'ra'},hb,cb,h('button',{onclick:()=>shareSheet(r)},'✈️\n공유'),r.u===me?h('button',{onclick:()=>{if(confirm('삭제할까요?'))db.doc('reels/'+r.id).delete().catch(err)}},'🗑️\n삭제'):null),
+      h('div',{class:'rc'},h('b',{onclick:()=>go('profile',r.u)},'@'+r.u,vb(r.u)),h('div',{},rich(r.cap||''))));
+    box.append(el);io.observe(el)
+  });
+  return h('div',{},h('div',{class:'rh'},h('b',{},'🎬 릴스'),h('button',{class:'pri sm',onclick:reelUpload},'+ 릴스 올리기')),RS.length?box:h('p',{class:'empty'},'아직 릴스가 없어요. 유튜브 쇼츠 링크를 올려봐요'))
+}
+function reelUpload(){
+  const url=h('input',{placeholder:'유튜브 쇼츠 링크 붙여넣기'}),cap=h('input',{placeholder:'문구 입력...',maxlength:100}),msg=h('p',{class:'err'}),btn=h('button',{class:'pri'},'올리기');
+  btn.onclick=async()=>{const m=url.value.match(/(?:shorts\/|youtu\.be\/|v=|embed\/)([\w-]{11})/);if(!m){msg.textContent='유튜브 링크가 아니에요';return}btn.disabled=true;try{await db.collection('reels').add({u:me,vid:m[1],cap:cap.value.trim(),ts:Date.now()});close()}catch(e){err(e);btn.disabled=false}};
+  overlay(h('div',{class:'sh'},h('h3',{},'릴스 올리기'),url,cap,msg,btn,h('button',{onclick:close},'취소')))
+}
+function shareSheet(r){
+  overlay(h('div',{class:'sh'},h('h3',{},'DM으로 공유'),...A.filter(u=>u!==me).map(u=>{const b=h('button',{class:'pri sm'},'보내기');b.onclick=()=>{sendDm(u,'릴스를 공유했어요','릴스',{v:r.vid});b.textContent='보냄 ✓';b.disabled=true};return h('div',{class:'ph'},av(u,40),h('b',{},u),b)}),h('button',{onclick:close},'닫기')))
+}
+function cmSheet(id){
+  let rp=null;
+  const inp=h('input',{class:'cin',placeholder:'댓글 달기...',maxlength:200}),list=h('div',{style:'overflow:auto;max-height:45vh'});
+  const reply=c=>{rp=c;inp.placeholder='@'+c.u+'님에게 답글...';inp.focus()};
+  const draw=()=>list.replaceChildren(...cRows(C.filter(c=>c.p===id),reply));
+  const send=()=>{const t=inp.value.trim();if(!t)return;inp.value='';const d={p:id,u:me,t:(rp?'@'+rp.u+' ':'')+t,ts:Date.now()};if(rp)d.pc=rp.pc||rp.id;rp=null;inp.placeholder='댓글 달기...';db.collection('comments').add(d).catch(err)};
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+  draw();cmDraw=draw;
+  overlay(h('div',{class:'sh'},h('h3',{},'댓글'),list,h('div',{class:'cw'},inp,h('button',{class:'lk',onclick:send},'게시')),h('button',{onclick:close},'닫기')))
+}
+const VERIFIED=new Set(['ourzihooni']),POP=5;
+const vb=u=>VERIFIED.has(u)?h('span',{class:'vb',title:'인증됨'},'✓'):null;
+function archive(){
+  const l=[...AS].sort((a,b)=>b.ts-a.ts),dt=t=>{const x=new Date(t);return(x.getMonth()+1)+'/'+x.getDate()};
+  overlay(h('div',{class:'sh'},h('h3',{},'📦 스토리 보관함'),
+    l.length?h('div',{class:'grid'},...l.map(s=>h('div',{style:'position:relative'},h('img',{src:s.img,onclick:()=>viewArch(s)}),h('small',{style:'position:absolute;left:4px;bottom:4px;color:#fff;text-shadow:0 1px 2px #000'},dt(s.ts))))):h('p',{class:'empty'},'아직 올린 스토리가 없어요'),
+    h('button',{onclick:close},'닫기')))
+}
+function viewArch(s){overlay(h('div',{class:'sv',onclick:archive},h('img',{src:s.img}),h('div',{class:'sh2'},h('span',{},new Date(s.ts).toLocaleString('ko-KR')+' · 눌러서 돌아가기'))))}
+function rich(t){
+  t=String(t);const out=[];let last=0;
+  for(const m of t.matchAll(/@[a-zA-Z0-9_.-]{2,20}|#[\p{L}\p{N}_]+/gu)){
+    let w=m[0];if(w[0]==='@')w=w.replace(/[.-]+$/,'');
+    const i=m.index;if(i>last)out.push(t.slice(last,i));
+    if(w[0]==='@'){const id=w.slice(1).toLowerCase();out.push(A.includes(id)?h('span',{class:'tg',onclick:()=>go('profile',id)},w):w)}
+    else out.push(h('span',{class:'tg'},w));
+    last=i+w.length
+  }
+  if(last<t.length)out.push(t.slice(last));
+  return out
+}
+const clike=c=>{const m=CL.some(l=>l.c===c.id&&l.u===me),n=CL.filter(l=>l.c===c.id).length;return h('button',{class:'ch',onclick:()=>{const r=db.doc('clikes/'+c.id+'_'+me);(m?r.delete():r.set({c:c.id,u:me})).catch(err)}},(m?'❤️':'🤍')+(n?' '+n:''))};
+const cRow=(c,sub,reply)=>h('div',{class:'cr'+(sub?' sub':'')},h('div',{style:'flex:1'},h('b',{},c.u,vb(c.u),' '),rich(c.t),h('div',{class:'sm2'},ago(c.ts)+'  ',h('a',{onclick:()=>reply(c)},'답글 달기'))),clike(c));
+const cRows=(cm,reply)=>cm.filter(c=>!c.pc).map(c=>h('div',{},cRow(c,0,reply),...cm.filter(x=>x.pc===c.id).map(x=>cRow(x,1,reply))));
 function overlay(c){close();const o=h('div',{id:'ov',onclick:e=>{if(e.target===o)close()}},c);document.body.append(o)}
 function close(){clearTimeout(stt);const o=$('#ov');if(o)o.remove()}
 function sheet(kind){
@@ -240,15 +330,15 @@ function openStory(u,i){
   const s=l[i];mark(s.id);
   const sl=SL.filter(x=>x.s===s.id);let liked=sl.some(x=>x.u===me);
   const inp=h('input',{class:'cin',placeholder:u+'님에게 답장 보내기...',maxlength:300});
-  const send=()=>{const t=inp.value.trim();if(!t)return;inp.value='';sendDm(u,t,'스토리 답장');inp.placeholder='보냈어요 ✓'};
+  const send=()=>{const t=inp.value.trim();if(!t)return;inp.value='';sendDm(u,t,'스토리 답장',{sid:s.id});inp.placeholder='보냈어요 ✓'};
   inp.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
   inp.addEventListener('focus',()=>clearTimeout(stt));
   const heart=h('button',{},liked?'❤️':'🤍');
-  heart.onclick=()=>{const r=db.doc('slikes/'+s.id+'_'+me);if(liked)r.delete().catch(err);else{r.set({s:s.id,u:me}).catch(err);sendDm(u,'❤️','스토리 좋아요')}liked=!liked;heart.textContent=liked?'❤️':'🤍'};
+  heart.onclick=()=>{const r=db.doc('slikes/'+s.id+'_'+me);if(liked)r.delete().catch(err);else{r.set({s:s.id,u:me}).catch(err);sendDm(u,'❤️','스토리 좋아요',{sid:s.id})}liked=!liked;heart.textContent=liked?'❤️':'🤍'};
   const bar=u===me?h('span',{},'❤️ '+sl.length+(sl.length?' ('+sl.map(x=>x.u).join(', ')+')':'')):[inp,heart];
   overlay(h('div',{class:'sv',onclick:e=>{if(e.target.closest('.x'))return;const r=e.currentTarget.getBoundingClientRect();e.clientX-r.left<r.width/3?openStory(u,Math.max(0,i-1)):openStory(u,i+1)}},
     h('div',{class:'bars'},...l.map((_,k)=>h('i',{class:k<=i?'on':''}))),
-    h('div',{class:'sh2'},av(u,30),h('b',{},u),h('span',{},ago(s.ts)),u===me?h('span',{class:'x',onclick:()=>{db.doc('stories/'+s.id).delete().catch(err);close()}},'삭제'):null,h('span',{class:'x',onclick:close},'✕')),
+    h('div',{class:'sh2'},av(u,30),h('b',{},u,vb(u)),h('span',{},ago(s.ts)),u===me?h('span',{class:'x',onclick:()=>{db.doc('stories/'+s.id).delete().catch(err);close()}},'삭제'):null,h('span',{class:'x',onclick:close},'✕')),
     h('img',{src:s.img}),h('div',{class:'x sb2'},bar)));
   stt=setTimeout(()=>openStory(u,i+1),4500)
 }
