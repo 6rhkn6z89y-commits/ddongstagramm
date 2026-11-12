@@ -69,11 +69,20 @@ a{color:var(--bl);cursor:pointer}.err{color:#ed4956;margin:0;min-height:1em}.mu{
 .vb{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#0095f6;color:#fff;font-size:9px;font-weight:700;margin-left:3px;vertical-align:middle}
 .pop{padding:8px 12px 0;font-weight:700;color:#ed4956;background:var(--card)}
 .tg{color:#0095f6;cursor:pointer}
+.nb{position:relative}.nb i{position:absolute;top:-2px;right:2px;background:#ed4956;color:#fff;font-size:10px;font-style:normal;font-family:sans-serif;border-radius:10px;min-width:16px;height:16px;line-height:16px;padding:0 4px}.nb i:empty{display:none}
+#bell{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:0;font-size:22px;cursor:pointer}#bell i{right:-4px;top:-6px}
+.dot{width:10px;height:10px;border-radius:50%;background:#0095f6;display:inline-block}
+.nt.new{background:rgba(0,149,246,.12)}
+.pvs{display:flex;gap:6px;overflow-x:auto}.pvs img{height:110px;border-radius:6px;flex:none}
+.cwr{position:relative}.car{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}.car::-webkit-scrollbar{display:none}
+.car img{flex:none;width:100%;scroll-snap-align:center;display:block;background:var(--bd)}
+.dots{display:flex;justify-content:center;gap:5px;padding:6px 0}.dots i{width:6px;height:6px;border-radius:50%;background:var(--bd)}.dots i.on{background:var(--bl)}
+.cnum{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.6);color:#fff;font-size:12px;border-radius:12px;padding:2px 8px}
 </style></head>
 <body>
-<header><span class="logo">💩 똥스타그램</span></header>
+<header><span class="logo">💩 똥스타그램</span><button id="bell" class="nb" style="display:none" onclick="go('notif')">🔔<i id="bd-nt"></i></button></header>
 <div id="main"><p class="empty">불러오는 중...</p></div>
-<nav class="hide" id="nav"><button onclick="go('feed')">🏠</button><button onclick="go('people')">🔍</button><button onclick="go('reels')">🎬</button><button onclick="go('inbox')">✉️</button><button onclick="sheet('post')">➕</button><button onclick="go('profile',me)">👤</button></nav>
+<nav class="hide" id="nav"><button onclick="go('feed')">🏠</button><button onclick="go('people')">🔍</button><button onclick="go('reels')">🎬</button><button class="nb" onclick="go('inbox')">✉️<i id="bd-dm"></i></button><button onclick="sheet('post')">➕</button><button onclick="go('profile',me)">👤</button></nav>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
 // ===== 여기에 Supabase 값을 붙여넣으세요 =====
@@ -136,7 +145,7 @@ function authScreen(){
   return h('div',{class:'auth'},h('div',{class:'logo big'},'💩 똥스타그램'),h('p',{class:'mu'},'친구들과 사진을 공유해요'),id,pin,msg,b,sw)
 }
 function start(id){
-  me=id;$('#nav').classList.remove('hide');loadSeen();
+  me=id;$('#nav').classList.remove('hide');loadSeen();loadRead();$('#bell').style.display='block';
   db.collection('posts').orderBy('ts','desc').limit(60).onSnapshot(s=>{P=s.docs.map(d=>({id:d.id,...d.data()}));render()},err);
   db.collection('likes').onSnapshot(s=>{L=s.docs.map(d=>d.data());render()},err);
   db.collection('comments').orderBy('ts','asc').onSnapshot(s=>{C=s.docs.map(d=>({id:d.id,...d.data()}));render()},err);
@@ -150,19 +159,23 @@ function start(id){
   db.collection('reels').orderBy('ts','desc').limit(40).onSnapshot(s=>{RS=s.docs.map(d=>({id:d.id,...d.data()}));render()},err);
   render()
 }
-function go(t,u){view={t,u};close();render();scrollTo(0,0)}
+function go(t,u){if(t==='reels'&&view.t!=='reels')orderReels();if(t==='notif')notifSince=rdv('!n');view={t,u};close();render();scrollTo(0,0)}
 function render(){
   if(!me)return;
+  updBadges();
   if(cmDraw&&$('#ov'))cmDraw();
   if(view.t==='reels'&&$('#main .reels')&&reelSig===RS.map(r=>r.id).join()){Object.values(reelUpd).forEach(f=>f());return}
   const a=document.activeElement;
   if(a&&a.classList&&a.classList.contains('cin')&&a.value){clearTimeout(rt);rt=setTimeout(render,1500);return}
-  $('#main').replaceChildren(view.t==='feed'?feed():view.t==='people'?people():view.t==='inbox'?inbox():view.t==='reels'?reelsView():view.t==='dm'?chat(view.u):profile(view.u))
+  $('#main').replaceChildren(view.t==='feed'?feed():view.t==='people'?people():view.t==='inbox'?inbox():view.t==='notif'?notifView():view.t==='reels'?reelsView():view.t==='dm'?chat(view.u):profile(view.u))
 }
 function feed(){
-  const F=fr(),ps=P.filter(p=>F.has(p.u)),sc=p=>L.filter(l=>l.p===p.id).length+C.filter(c=>c.p===p.id).length;
-  const pop=ps.filter(p=>Date.now()-p.ts<6048e5&&sc(p)>=POP).sort((a,b)=>sc(b)-sc(a)).slice(0,3),ids=new Set(pop.map(p=>p.id));
-  return h('div',{},storyBar(),...pop.map(p=>h('div',{},h('div',{class:'pop'},'🔥 인기 게시물'),card(p))),...ps.filter(p=>!ids.has(p.id)).map(card),
+  const F=fr(),ps=P.filter(p=>F.has(p.u)),sc=p=>L.filter(l=>l.p===p.id).length+C.filter(c=>c.p===p.id).length,now=Date.now();
+  const isPop=p=>now-p.ts<6048e5&&sc(p)>=POP;
+  const nw=ps.filter(p=>now-p.ts<864e5),nid=new Set(nw.map(p=>p.id));
+  const pop=ps.filter(p=>!nid.has(p.id)&&isPop(p)).sort((a,b)=>sc(b)-sc(a)).slice(0,3),pid=new Set(pop.map(p=>p.id));
+  const wrap=(p,b)=>b?h('div',{},h('div',{class:'pop'},'🔥 인기 게시물'),card(p)):card(p);
+  return h('div',{},storyBar(),...nw.map(p=>wrap(p,isPop(p))),...pop.map(p=>wrap(p,true)),...ps.filter(p=>!nid.has(p.id)&&!pid.has(p.id)).map(p=>card(p)),
     ps.length?null:h('p',{class:'empty'},'팔로우한 사람의 게시물이 보여요. 아래 🔍에서 친구를 찾아 팔로우해봐요 💩'))
 }
 function storyBar(){
@@ -175,7 +188,7 @@ function storyBar(){
     h('div',{class:'st',onclick:()=>mine?openStory(me):sheet('story')},h('div',{class:'ring'+(mine&&un(me)?'':' no')},av(me,56)),h('small',{},'내 스토리'),h('b',{class:'plus',onclick:e=>{e.stopPropagation();sheet('story')}},'+')),
     ...users.map(u=>h('div',{class:'st',onclick:()=>openStory(u)},h('div',{class:'ring'+(un(u)?'':' no')},av(u,56)),h('small',{},u))))
 }
-function like(p,mine){const r=db.doc('likes/'+p.id+'_'+me);(mine?r.delete():r.set({p:p.id,u:me})).catch(err)}
+function like(p,mine){const r=db.doc('likes/'+p.id+'_'+me);(mine?r.delete():r.set({p:p.id,u:me,ts:Date.now()})).catch(err)}
 function card(p){
   const lk=L.filter(l=>l.p===p.id),mine=lk.some(l=>l.u===me),cm=C.filter(c=>c.p===p.id);
   let rp=null;
@@ -185,7 +198,7 @@ function card(p){
   const reply=c=>{rp=c;inp.placeholder='@'+c.u+'님에게 답글...';inp.focus()};
   return h('article',{class:'card'},
     h('div',{class:'ph'},av(p.u),h('b',{onclick:()=>go('profile',p.u)},p.u,vb(p.u)),h('span',{class:'mu'},ago(p.ts)),p.u===me?h('span',{class:'del',onclick:()=>{if(confirm('삭제할까요?'))db.doc('posts/'+p.id).delete().catch(err)}},'삭제'):null),
-    h('img',{src:p.img,ondblclick:()=>like(p,mine)}),
+    carousel(p,()=>like(p,mine)),
     h('div',{class:'act'},h('button',{onclick:()=>like(p,mine)},mine?'❤️':'🤍')),
     h('div',{class:'pad'},h('b',{},'좋아요 '+lk.length+'개'),p.cap?h('p',{},h('b',{},p.u+' '),rich(p.cap)):null,...cRows(cm,reply)),
     h('div',{class:'cw'},inp,h('button',{class:'lk',onclick:send},'게시')))
@@ -217,16 +230,18 @@ function loadSeen(){
   db.doc('seen/'+me).get().then(r=>{if(r.exists){(r.data().ids||[]).forEach(i=>SN[i]=1);render()}}).catch(err)
 }
 const mark=id=>{if(SN[id])return;SN[id]=1;store.set('seen_'+me,JSON.stringify(SN));clearTimeout(snT);
-  snT=setTimeout(async()=>{try{const r=db.doc('seen/'+me),x=await r.get(),ids=new Set(Object.keys(SN));if(x.exists)(x.data().ids||[]).forEach(i=>ids.add(i));const live=new Set(S.map(v=>v.id));await r.set({ids:[...ids].filter(i=>!S.length||live.has(i))})}catch(e){err(e)}},1000)};
+  snT=setTimeout(async()=>{try{const r=db.doc('seen/'+me),x=await r.get(),ids=new Set(Object.keys(SN));if(x.exists)(x.data().ids||[]).forEach(i=>ids.add(i));const live=new Set(S.map(v=>v.id));await r.set({ids:[...ids].filter(i=>i.startsWith('r_')?(!RS.length||RS.some(r=>'r_'+r.id===i)):(!S.length||live.has(i)))})}catch(e){err(e)}},1000)};
 function sendDm(to,t,re,x){if(to===me)return;db.collection('dms').add({from:me,to,t,ts:Date.now(),re:re||null,...(x||{})}).catch(err)}
 function inbox(){
   const by={};D.filter(m=>m.from===me||m.to===me).forEach(m=>{const o=m.from===me?m.to:m.from;(by[o]=by[o]||[]).push(m)});
   const us=Object.keys(by).sort((a,b)=>by[b][by[b].length-1].ts-by[a][by[a].length-1].ts);
   return h('div',{},h('h3',{style:'padding:10px 14px;margin:0'},'메시지'),
-    ...(us.length?us.map(u=>{const l=by[u][by[u].length-1];return h('div',{class:'ph',style:'cursor:pointer',onclick:()=>go('dm',u)},av(u,44),h('div',{style:'flex:1'},h('b',{},u,vb(u)),h('div',{class:'mu'},(l.from===me?'나: ':'')+l.t)),h('span',{class:'mu'},ago(l.ts)))}):[h('p',{class:'empty'},'아직 메시지가 없어요. 프로필에서 메시지를 보내봐요')]))
+    ...(us.length?us.map(u=>{const l=by[u][by[u].length-1],un=by[u].some(m=>m.to===me&&m.ts>rdv(u));
+      return h('div',{class:'ph',style:'cursor:pointer',onclick:()=>go('dm',u)},av(u,44),h('div',{style:'flex:1;font-weight:'+(un?700:400)},h('b',{},u,vb(u)),h('div',{class:un?'':'mu'},(l.from===me?'나: ':'')+l.t)),un?h('span',{class:'dot'}):h('span',{class:'mu'},ago(l.ts)))}):[h('p',{class:'empty'},'아직 메시지가 없어요. 프로필에서 메시지를 보내봐요')]))
 }
 function chat(u){
   const ms=D.filter(m=>(m.from===me&&m.to===u)||(m.from===u&&m.to===me));
+  const lm=Math.max(0,...ms.filter(m=>m.from===u).map(m=>m.ts));if(lm>rdv(u))setRead(u,lm);
   const inp=h('input',{class:'cin',placeholder:'메시지 보내기...',maxlength:500});
   const send=()=>{const t=inp.value.trim();if(!t)return;inp.value='';sendDm(u,t)};
   inp.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
@@ -255,15 +270,16 @@ function playV(v){overlay(h('div',{style:'width:min(92vw,360px);height:80vh'},h(
 function reelsView(){
   reelSig=RS.map(r=>r.id).join();reelUpd={};
   const box=h('div',{class:'reels'});
-  const io=new IntersectionObserver(es=>es.forEach(e=>{const v=e.target.querySelector('.rv');e.isIntersecting?loadV(v):unloadV(v)}),{root:box,threshold:.7});
-  RS.forEach(r=>{
+  const io=new IntersectionObserver(es=>es.forEach(e=>{const v=e.target.querySelector('.rv');e.isIntersecting?(loadV(v),mark('r_'+e.target.dataset.rid)):unloadV(v)}),{root:box,threshold:.7});
+  const fresh=RS.filter(r=>!reelOrder.includes(r.id));reelOrder=[...fresh.map(r=>r.id),...reelOrder];
+  reelOrder.map(id=>RS.find(r=>r.id===id)).filter(Boolean).forEach(r=>{
     const rv=h('div',{class:'rv','data-v':r.vid,style:'background-image:url(https://i.ytimg.com/vi/'+r.vid+'/hqdefault.jpg)',onclick:e=>loadV(e.currentTarget)});
     const hb=h('button',{}),cb=h('button',{});
     const upd=()=>{const lk=L.filter(l=>l.p===r.id),m=lk.some(l=>l.u===me);hb.textContent=(m?'❤️':'🤍')+'\n'+lk.length;cb.textContent='💬\n'+C.filter(c=>c.p===r.id).length};
     hb.onclick=()=>like(r,L.some(l=>l.p===r.id&&l.u===me));
     cb.onclick=()=>cmSheet(r.id);
     reelUpd[r.id]=upd;upd();
-    const el=h('section',{class:'rl'},rv,
+    const el=h('section',{class:'rl','data-rid':r.id},rv,
       h('div',{class:'ra'},hb,cb,h('button',{onclick:()=>shareSheet(r)},'✈️\n공유'),r.u===me?h('button',{onclick:()=>{if(confirm('삭제할까요?'))db.doc('reels/'+r.id).delete().catch(err)}},'🗑️\n삭제'):null),
       h('div',{class:'rc'},h('b',{onclick:()=>go('profile',r.u)},'@'+r.u,vb(r.u)),h('div',{},rich(r.cap||''))));
     box.append(el);io.observe(el)
@@ -309,19 +325,76 @@ function rich(t){
   if(last<t.length)out.push(t.slice(last));
   return out
 }
-const clike=c=>{const m=CL.some(l=>l.c===c.id&&l.u===me),n=CL.filter(l=>l.c===c.id).length;return h('button',{class:'ch',onclick:()=>{const r=db.doc('clikes/'+c.id+'_'+me);(m?r.delete():r.set({c:c.id,u:me})).catch(err)}},(m?'❤️':'🤍')+(n?' '+n:''))};
+const clike=c=>{const m=CL.some(l=>l.c===c.id&&l.u===me),n=CL.filter(l=>l.c===c.id).length;return h('button',{class:'ch',onclick:()=>{const r=db.doc('clikes/'+c.id+'_'+me);(m?r.delete():r.set({c:c.id,u:me,ts:Date.now()})).catch(err)}},(m?'❤️':'🤍')+(n?' '+n:''))};
 const cRow=(c,sub,reply)=>h('div',{class:'cr'+(sub?' sub':'')},h('div',{style:'flex:1'},h('b',{},c.u,vb(c.u),' '),rich(c.t),h('div',{class:'sm2'},ago(c.ts)+'  ',h('a',{onclick:()=>reply(c)},'답글 달기'))),clike(c));
 const cRows=(cm,reply)=>cm.filter(c=>!c.pc).map(c=>h('div',{},cRow(c,0,reply),...cm.filter(x=>x.pc===c.id).map(x=>cRow(x,1,reply))));
+let RD={},rdT,notifSince=0;
+const rdv=k=>RD[k]||RD['!i']||0;
+function loadRead(){
+  try{RD=JSON.parse(localStorage.getItem('rd_'+me)||'{}')}catch(e){RD={}}
+  db.doc('dmread/'+me).get().then(r=>{
+    if(r.exists){const x=r.data().rd||{};for(const k in x)RD[k]=Math.max(RD[k]||0,x[k])}
+    store.set('rd_'+me,JSON.stringify(RD));
+    if(!RD['!i'])setRead('!i',Date.now());
+    render()}).catch(err)
+}
+function setRead(k,ts){
+  if((RD[k]||0)>=ts)return;RD[k]=ts;store.set('rd_'+me,JSON.stringify(RD));updBadges();
+  clearTimeout(rdT);rdT=setTimeout(async()=>{try{const r=db.doc('dmread/'+me),x=await r.get(),m={...RD};if(x.exists){const o=x.data().rd||{};for(const k in o)m[k]=Math.max(m[k]||0,o[k])}await r.set({rd:m})}catch(e){err(e)}},1000)
+}
+const unreadDm=()=>{const by={};D.filter(m=>m.to===me&&m.ts>rdv(m.from)).forEach(m=>by[m.from]=1);return Object.keys(by)};
+const ment=t=>new RegExp('@'+me.replace(/[.\-]/g,'\\$&')+'(?![a-zA-Z0-9_-])','i').test(t||'');
+function notifs(){
+  const out=[],mP=new Set(P.filter(p=>p.u===me).map(p=>p.id)),mR=new Set(RS.filter(r=>r.u===me).map(r=>r.id)),mC=new Map(C.filter(c=>c.u===me).map(c=>[c.id,c]));
+  const open=id=>{const p=P.find(x=>x.id===id);p?overlay(h('div',{style:'width:min(96vw,470px);margin:auto'},card(p))):go('reels')};
+  L.forEach(l=>{if(l.u!==me&&l.ts&&(mP.has(l.p)||mR.has(l.p)))out.push({ts:l.ts,u:l.u,t:'님이 내 '+(mP.has(l.p)?'게시물을':'릴스를')+' 좋아해요',a:()=>open(l.p)})});
+  C.forEach(c=>{if(c.u===me)return;
+    if(c.pc&&mC.has(c.pc))out.push({ts:c.ts,u:c.u,t:'님이 내 댓글에 답글을 남겼어요: '+c.t,a:()=>open(c.p)});
+    else if(mP.has(c.p)||mR.has(c.p))out.push({ts:c.ts,u:c.u,t:'님이 댓글을 남겼어요: '+c.t,a:()=>open(c.p)});
+    else if(ment(c.t))out.push({ts:c.ts,u:c.u,t:'님이 댓글에서 나를 언급했어요: '+c.t,a:()=>open(c.p)})});
+  CL.forEach(l=>{if(l.u!==me&&l.ts&&mC.has(l.c))out.push({ts:l.ts,u:l.u,t:'님이 내 댓글을 좋아해요',a:()=>open(mC.get(l.c).p)})});
+  R.forEach(r=>{if(r.to===me&&r.ts)out.push({ts:r.ts,u:r.from,t:'님이 나를 팔로우하기 시작했어요',a:()=>go('profile',r.from)})});
+  P.forEach(p=>{if(p.u!==me&&ment(p.cap))out.push({ts:p.ts,u:p.u,t:'님이 게시물에서 나를 언급했어요',a:()=>open(p.id)})});
+  RS.forEach(r=>{if(r.u!==me&&ment(r.cap))out.push({ts:r.ts,u:r.u,t:'님이 릴스에서 나를 언급했어요',a:()=>go('reels')})});
+  return out.sort((a,b)=>b.ts-a.ts).slice(0,60)
+}
+function updBadges(){
+  const d=unreadDm().length,n=notifs().filter(x=>x.ts>rdv('!n')).length,a=$('#bd-dm'),b=$('#bd-nt');
+  if(a)a.textContent=d?(d>9?'9+':d):'';if(b)b.textContent=n?(n>9?'9+':n):''
+}
+function notifView(){
+  const it=notifs(),latest=Math.max(0,...it.map(x=>x.ts));if(latest>rdv('!n'))setRead('!n',latest);
+  return h('div',{},h('h3',{style:'padding:10px 14px;margin:0'},'알림'),
+    ...(it.length?it.map(x=>h('div',{class:'ph nt'+(x.ts>notifSince?' new':''),style:'cursor:pointer',onclick:x.a},av(x.u,40),h('div',{style:'flex:1'},h('b',{},x.u,vb(x.u)),' '+x.t),h('span',{class:'mu'},ago(x.ts)))):[h('p',{class:'empty'},'아직 알림이 없어요')]))
+}
+let reelOrder=[];
+function orderReels(){
+  const un=RS.filter(r=>r.u!==me&&!SN['r_'+r.id]),sn=RS.filter(r=>r.u===me||SN['r_'+r.id]);
+  for(let i=sn.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[sn[i],sn[j]]=[sn[j],sn[i]]}
+  reelOrder=[...un,...sn].map(r=>r.id)
+}
+const slide={};
+function carousel(p,dbl){
+  const im=p.imgs&&p.imgs.length?p.imgs:[p.img];
+  if(im.length<2)return h('img',{src:im[0],ondblclick:dbl});
+  const tr=h('div',{class:'car'},...im.map(src=>h('img',{src,ondblclick:dbl}))),dots=h('div',{class:'dots'},...im.map(()=>h('i',{}))),n=h('span',{class:'cnum'},'');
+  const show=i=>{[...dots.children].forEach((d,k)=>d.className=k===i?'on':'');n.textContent=(i+1)+'/'+im.length};
+  tr.addEventListener('scroll',()=>{const i=Math.round(tr.scrollLeft/tr.clientWidth);slide[p.id]=i;show(i)});
+  show(slide[p.id]||0);
+  requestAnimationFrame(()=>{tr.style.scrollBehavior='auto';tr.scrollLeft=(slide[p.id]||0)*tr.clientWidth});
+  return h('div',{class:'cwr'},tr,n,dots)
+}
 function overlay(c){close();const o=h('div',{id:'ov',onclick:e=>{if(e.target===o)close()}},c);document.body.append(o)}
 function close(){clearTimeout(stt);const o=$('#ov');if(o)o.remove()}
 function sheet(kind){
-  let data=null;
-  const pv=h('img',{class:'pv'}),cap=h('input',{placeholder:'문구 입력...',maxlength:150});
+  let data=[];
+  const multi=kind==='post',pv=h('div',{class:'pvs'}),cap=h('input',{placeholder:'문구 입력...',maxlength:150});
   const btn=h('button',{class:'pri',disabled:''},'공유');
-  btn.onclick=async()=>{btn.disabled=true;btn.textContent='올리는 중...';try{await db.collection(kind==='post'?'posts':'stories').add(kind==='post'?{u:me,img:data,cap:cap.value.trim(),ts:Date.now()}:{u:me,img:data,ts:Date.now()});close()}catch(e){err(e);btn.textContent='실패 - 다시 시도';btn.disabled=false}};
-  const f=h('input',{type:'file',accept:'image/*'});
-  f.onchange=async()=>{if(!f.files[0])return;try{data=await shrink(f.files[0]);pv.src=data;pv.style.display='block';btn.disabled=false}catch(e){err(e)}};
-  overlay(h('div',{class:'sh'},h('h3',{},kind==='post'?'새 게시물':'새 스토리'),f,pv,kind==='post'?cap:null,btn,h('button',{onclick:close},'취소')))
+  btn.onclick=async()=>{btn.disabled=true;btn.textContent='올리는 중...';try{await db.collection(multi?'posts':'stories').add(multi?{u:me,img:data[0],imgs:data,cap:cap.value.trim(),ts:Date.now()}:{u:me,img:data[0],ts:Date.now()});close()}catch(e){err(e);btn.textContent='실패 - 다시 시도';btn.disabled=false}};
+  const f=h('input',{type:'file',accept:'image/*'});if(multi)f.setAttribute('multiple','');
+  f.onchange=async()=>{const fs=[...f.files].slice(0,multi?6:1);if(!fs.length)return;btn.disabled=true;btn.textContent='사진 처리 중...';
+    try{data=[];pv.replaceChildren();for(const x of fs){const d=await shrink(x,720,multi?120000:200000);data.push(d);pv.append(h('img',{src:d}))}btn.textContent='공유';btn.disabled=false}catch(e){err(e);btn.textContent='공유'}};
+  overlay(h('div',{class:'sh'},h('h3',{},multi?'새 게시물 (사진 최대 6장)':'새 스토리'),f,pv,multi?cap:null,btn,h('button',{onclick:close},'취소')))
 }
 function openStory(u,i){
   const l=S.filter(s=>s.u===u).sort((a,b)=>a.ts-b.ts),sn=seen();
