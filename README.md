@@ -394,12 +394,12 @@ function carousel(p,dbl){
   requestAnimationFrame(()=>{tr.style.scrollBehavior='auto';tr.scrollLeft=(slide[p.id]||0)*tr.clientWidth});
   return h('div',{class:'cwr'},tr,n,dots)
 }
-const sa=new Audio();sa.preload='auto';
+const yt=h('div',{style:'position:fixed;bottom:0;right:0;width:200px;height:200px;opacity:.01;pointer-events:none;z-index:-1;overflow:hidden'});document.body.append(yt);
+function ytPlay(m){yt.replaceChildren(h('iframe',{src:'https://www.youtube.com/embed/'+m.vid+'?autoplay=1&loop=1&playlist='+m.vid+'&start='+(m.start||0)+'&playsinline=1&controls=0',allow:'autoplay; encrypted-media',style:'width:200px;height:200px;border:0'}))}
+function ytStop(){yt.replaceChildren()}
 function playMusic(m,chip){
-  sa.src=m.url;sa.loop=true;
-  const ok=()=>{chip.textContent='🎵 '+m.title+' · '+m.artist},no=()=>{chip.textContent='🔇 눌러서 음악 켜기'};
-  chip.onclick=()=>{if(sa.paused)sa.play().then(ok).catch(no);else{sa.pause();no()}};
-  sa.play().then(ok).catch(no)
+  let on=true;const lab='🎵 '+(m.title||'음악');ytPlay(m);chip.textContent=lab;
+  chip.onclick=()=>{on=!on;if(on){ytPlay(m);chip.textContent=lab}else{ytStop();chip.textContent='🔇 눌러서 음악 켜기'}}
 }
 async function itunes(q){
   const r=await fetch('https://itunes.apple.com/search?media=music&entity=song&limit=10&country=KR&term='+encodeURIComponent(q)),j=await r.json();
@@ -436,12 +436,18 @@ function storySheet(){
     ...['#ffffff','#000000','#ffd400','#ff4d8d','#4dd2ff'].map(c=>h('button',{class:'cdot',style:'background:'+c,onclick:()=>{col=c}})),
     h('button',{class:'sm',onclick:()=>{sz=.05}},'작게'),h('button',{class:'sm',onclick:()=>{sz=.07}},'보통'),h('button',{class:'sm',onclick:()=>{sz=.1}},'크게'),
     h('button',{class:'sm',onclick:()=>{if(items.pop())box.lastChild.remove()}},'↩ 지우기'));
-  const q=h('input',{placeholder:'노래 검색 (제목/가수)',maxlength:60}),res=h('div',{style:'max-height:30vh;overflow:auto'});
-  const search=async()=>{const t=q.value.trim();if(!t)return;res.textContent='검색 중...';
-    try{const r=await itunes(t);res.replaceChildren(...(r.length?r.map(m=>h('div',{class:'mr',onclick:()=>{music=m;chip.textContent='🎵 '+m.title+' · '+m.artist;sa.src=m.url;sa.loop=true;sa.play().catch(err);mp.style.display='none'}},h('img',{src:m.art}),h('div',{},h('b',{},m.title),h('div',{class:'mu'},m.artist)))):[h('p',{class:'mu'},'결과가 없어요')]))}catch(e){err(e);res.textContent='검색에 실패했어요'}};
-  q.addEventListener('keydown',e=>{if(e.key==='Enter')search()});
-  mp.append(h('div',{class:'tools'},q,h('button',{class:'sm',onclick:search},'검색')),res);
-  const mrow=h('div',{class:'tools'},h('button',{class:'sm',onclick:()=>{mp.style.display=mp.style.display==='none'?'block':'none'}},'🎵 음악 추가'),h('button',{class:'sm',onclick:()=>{music=null;chip.textContent='';sa.pause()}},'음악 지우기'));
+  const mu=h('input',{placeholder:'유튜브 노래 링크 붙여넣기',maxlength:200,style:'flex:1;min-width:160px'}),msg=h('p',{class:'err',style:'margin:0'});
+  const setM=async()=>{
+    const u=mu.value.trim(),m=u.match(/(?:shorts\/|youtu\.be\/|v=|embed\/)([\w-]{11})/);
+    if(!m){msg.textContent='유튜브 링크가 아니에요';return}msg.textContent='';
+    const t=u.match(/[?&](?:t|start)=(?:(\d+)m)?(\d+)s?/),start=t?(+(t[1]||0))*60+(+t[2]):0;
+    music={vid:m[1],start};chip.textContent='🎵 불러오는 중...';ytPlay(music);
+    try{const r=await fetch('https://www.youtube.com/oembed?format=json&url='+encodeURIComponent('https://www.youtube.com/watch?v='+m[1])),j=await r.json();music.title=(j.title||'').slice(0,40)}catch(e){}
+    chip.textContent='🎵 '+(music.title||'선택한 음악');mp.style.display='none'
+  };
+  mu.addEventListener('keydown',e=>{if(e.key==='Enter')setM()});
+  mp.append(h('div',{class:'tools'},mu,h('button',{class:'sm',onclick:setM},'확인')),msg,h('div',{class:'mu',style:'font-size:12px'},'링크 끝에 ?t=60 을 붙이면 60초부터 재생돼요'));
+  const mrow=h('div',{class:'tools'},h('button',{class:'sm',onclick:()=>{mp.style.display=mp.style.display==='none'?'block':'none'}},'🎵 음악 추가'),h('button',{class:'sm',onclick:()=>{music=null;chip.textContent='';ytStop()}},'음악 지우기'));
   btn.onclick=async()=>{btn.disabled=true;btn.textContent='올리는 중...';try{const img=await burn(base,items);await db.collection('stories').add({u:me,img,ts:Date.now(),...(music?{music}:{})});close()}catch(e){err(e);btn.textContent='실패 - 다시 시도';btn.disabled=false}};
   overlay(h('div',{class:'sh'},h('h3',{},'새 스토리'),f,box,tools,mrow,mp,chip,btn,h('button',{onclick:close},'취소')))
 }
@@ -468,7 +474,7 @@ function gchat(gid){
     h('div',{class:'cw'},inp,h('button',{class:'lk',onclick:send},'보내기')))
 }
 function overlay(c){close();const o=h('div',{id:'ov',onclick:e=>{if(e.target===o)close()}},c);document.body.append(o)}
-function close(){clearTimeout(stt);sa.pause();const o=$('#ov');if(o)o.remove()}
+function close(){clearTimeout(stt);ytStop();const o=$('#ov');if(o)o.remove()}
 function sheet(kind){
   if(kind==='story')return storySheet();
   let data=[];
@@ -492,13 +498,13 @@ function openStory(u,i){
   inp.addEventListener('focus',()=>clearTimeout(stt));
   const heart=h('button',{},liked?'❤️':'🤍');
   heart.onclick=()=>{const r=db.doc('slikes/'+s.id+'_'+me);if(liked)r.delete().catch(err);else{r.set({s:s.id,u:me}).catch(err);sendDm(u,'❤️','스토리 좋아요',{sid:s.id})}liked=!liked;heart.textContent=liked?'❤️':'🤍'};
-  const chip=s.music?h('div',{class:'x mchip'},'🎵 '+s.music.title+' · '+s.music.artist):null;
+  const chip=s.music?h('div',{class:'x mchip'},'🎵 '+(s.music.title||'음악')):null;
   const bar=u===me?h('span',{},'❤️ '+sl.length+(sl.length?' ('+sl.map(x=>x.u).join(', ')+')':'')):[inp,heart];
   overlay(h('div',{class:'sv',onclick:e=>{if(e.target.closest('.x'))return;const r=e.currentTarget.getBoundingClientRect();e.clientX-r.left<r.width/3?openStory(u,Math.max(0,i-1)):openStory(u,i+1)}},
     h('div',{class:'bars'},...l.map((_,k)=>h('i',{class:k<=i?'on':''}))),
     h('div',{class:'sh2'},av(u,30),h('b',{},u,vb(u)),h('span',{},ago(s.ts)),u===me?h('span',{class:'x',onclick:()=>{db.doc('stories/'+s.id).delete().catch(err);close()}},'삭제'):null,h('span',{class:'x',onclick:close},'✕')),
     h('img',{src:s.img}),chip,h('div',{class:'x sb2'},bar)));
-  if(s.music)playMusic(s.music,chip);
+  if(s.music&&s.music.vid)playMusic(s.music,chip);
   stt=setTimeout(()=>openStory(u,i+1),4500)
 }
 (async()=>{
