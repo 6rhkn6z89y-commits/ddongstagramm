@@ -85,6 +85,7 @@ a{color:var(--bl);cursor:pointer}.err{color:#ed4956;margin:0;min-height:1em}.mu{
 .sh .tools button.sm{border:1px solid var(--bd);color:var(--tx);padding:6px 10px}
 .sh button.cdot{width:26px;height:26px;border-radius:50%;border:2px solid var(--bd);padding:0}
 .mr{display:flex;gap:8px;align-items:center;padding:6px;border-radius:8px;cursor:pointer}.mr img{width:40px;height:40px;border-radius:6px}
+.mchip{width:176px;cursor:default}.mchip iframe{display:block;width:168px;height:94px;border:0;border-radius:8px;margin-top:4px}
 </style></head>
 <body>
 <header><span class="logo">💩 똥스타그램</span><button id="bell" class="nb" style="display:none" onclick="go('notif')">🔔<i id="bd-nt"></i></button></header>
@@ -107,12 +108,13 @@ function makeDb(url,key){
     orderBy(k,dir='asc'){return colRef(col,{...f,o:[k,dir]})},
     limit(n){return colRef(col,{...f,l:n})},
     where(k,op,v){return colRef(col,{...f,w:[...f.w,[k,op,v]]})},
-    async get(){const{data,error}=await T().select('id,data').eq('col',col);if(error)throw error;let rows=data;
+    async get(){let q=T().select('id,data').eq('col',col);if(f.o&&!f.w.length){q=q.order('data->>'+f.o[0],{ascending:f.o[1]!=='desc'});if(f.l)q=q.limit(f.l)}
+      const{data,error}=await q;if(error)throw error;let rows=data;
       for(const[k,op,v]of f.w)rows=rows.filter(r=>op==='>'?r.data[k]>v:op==='<'?r.data[k]<v:r.data[k]===v);
       if(f.o){const[k,d]=f.o;rows.sort((a,b)=>(a.data[k]>b.data[k]?1:-1)*(d==='desc'?-1:1))}
       if(f.l)rows=rows.slice(0,f.l);
       return{docs:rows.map(r=>({id:r.id,data:()=>r.data}))}},
-    onSnapshot(cb,eb){const run=()=>this.get().then(cb).catch(eb||console.error);run();
+    onSnapshot(cb,eb){let tries=0;const run=()=>this.get().then(cb).catch(e=>{(eb||console.error)(e);if(tries++<3)setTimeout(run,3000*tries)});run();
       const ch=sb.channel('c-'+col+'-'+rid()).on('postgres_changes',{event:'*',schema:'public',table:'docs'},p=>{const c=(p.new&&p.new.col)||(p.old&&p.old.col);if(c===col)run()}).subscribe();
       return()=>sb.removeChannel(ch)},
     async add(d){const id=rid();await docRef(col+'/'+id).set(d);return docRef(col+'/'+id)}});
@@ -153,7 +155,7 @@ function authScreen(){
 }
 function start(id){
   me=id;$('#nav').classList.remove('hide');loadSeen();loadRead();$('#bell').style.display='block';
-  db.collection('posts').orderBy('ts','desc').limit(60).onSnapshot(s=>{P=s.docs.map(d=>({id:d.id,...d.data()}));render()},err);
+  subPosts();
   db.collection('likes').onSnapshot(s=>{L=s.docs.map(d=>d.data());render()},err);
   db.collection('comments').orderBy('ts','asc').onSnapshot(s=>{C=s.docs.map(d=>({id:d.id,...d.data()}));render()},err);
   db.collection('stories').where('ts','>',Date.now()-864e5).onSnapshot(s=>{S=s.docs.map(d=>({id:d.id,...d.data()}));render()},err);
@@ -184,6 +186,7 @@ function feed(){
   const pop=ps.filter(p=>!nid.has(p.id)&&isPop(p)).sort((a,b)=>sc(b)-sc(a)).slice(0,3),pid=new Set(pop.map(p=>p.id));
   const wrap=(p,b)=>b?h('div',{},h('div',{class:'pop'},'🔥 인기 게시물'),card(p)):card(p);
   return h('div',{},storyBar(),...nw.map(p=>wrap(p,isPop(p))),...pop.map(p=>wrap(p,true)),...ps.filter(p=>!nid.has(p.id)&&!pid.has(p.id)).map(p=>card(p)),
+    P.length>=postLimit?h('button',{class:'sm',style:'display:block;margin:12px auto',onclick:()=>{postLimit+=40;subPosts()}},'게시물 더 보기'):null,
     ps.length?null:h('p',{class:'empty'},'팔로우한 사람의 게시물이 보여요. 아래 🔍에서 친구를 찾아 팔로우해봐요 💩'))
 }
 function storyBar(){
@@ -398,8 +401,7 @@ const yt=h('div',{style:'position:fixed;bottom:0;right:0;width:200px;height:200p
 function ytPlay(m){yt.replaceChildren(h('iframe',{src:'https://www.youtube.com/embed/'+m.vid+'?autoplay=1&loop=1&playlist='+m.vid+'&start='+(m.start||0)+'&playsinline=1&controls=0',allow:'autoplay; encrypted-media',style:'width:200px;height:200px;border:0'}))}
 function ytStop(){yt.replaceChildren()}
 function playMusic(m,chip){
-  let on=true;const lab='🎵 '+(m.title||'음악');ytPlay(m);chip.textContent=lab;
-  chip.onclick=()=>{on=!on;if(on){ytPlay(m);chip.textContent=lab}else{ytStop();chip.textContent='🔇 눌러서 음악 켜기'}}
+  chip.replaceChildren('🎵 '+(m.title||'음악'),h('iframe',{src:'https://www.youtube.com/embed/'+m.vid+'?autoplay=1&loop=1&playlist='+m.vid+'&start='+(m.start||0)+'&playsinline=1&rel=0&modestbranding=1',allow:'autoplay; encrypted-media',allowfullscreen:''}))
 }
 async function itunes(q){
   const r=await fetch('https://itunes.apple.com/search?media=music&entity=song&limit=10&country=KR&term='+encodeURIComponent(q)),j=await r.json();
@@ -427,7 +429,7 @@ async function burn(url,items){
 }
 function storySheet(){
   let base=null,music=null,col='#ffffff',sz=.07;const items=[];
-  const pv=h('img',{}),box=h('div',{class:'sbox',style:'display:none'},pv),tools=h('div',{class:'tools',style:'display:none'}),mp=h('div',{style:'display:none'}),chip=h('div',{class:'mu',style:'text-align:center'});
+  const pv=h('img',{}),box=h('div',{class:'sbox',style:'display:none'},pv),tools=h('div',{class:'tools',style:'display:none'}),mp=h('div',{style:'display:none'}),prev=h('div',{}),chip=h('div',{class:'mu',style:'text-align:center'});
   const btn=h('button',{class:'pri',disabled:''},'공유'),f=h('input',{type:'file',accept:'image/*'});
   f.onchange=async()=>{if(!f.files[0])return;try{base=await shrink(f.files[0],720,200000);pv.src=base;box.style.display='block';tools.style.display='flex';items.length=0;[...box.querySelectorAll('.ov-t')].forEach(x=>x.remove());btn.disabled=false}catch(e){err(e)}};
   const ti=h('input',{placeholder:'텍스트 입력',maxlength:60,style:'flex:1;min-width:120px'});
@@ -441,15 +443,15 @@ function storySheet(){
     const u=mu.value.trim(),m=u.match(/(?:shorts\/|youtu\.be\/|v=|embed\/)([\w-]{11})/);
     if(!m){msg.textContent='유튜브 링크가 아니에요';return}msg.textContent='';
     const t=u.match(/[?&](?:t|start)=(?:(\d+)m)?(\d+)s?/),start=t?(+(t[1]||0))*60+(+t[2]):0;
-    music={vid:m[1],start};chip.textContent='🎵 불러오는 중...';ytPlay(music);
+    music={vid:m[1],start};chip.textContent='🎵 불러오는 중...';prev.replaceChildren(h('iframe',{src:'https://www.youtube.com/embed/'+m[1]+'?autoplay=1&loop=1&playlist='+m[1]+'&start='+start+'&playsinline=1&rel=0',allow:'autoplay; encrypted-media',style:'width:100%;height:150px;border:0;border-radius:8px'}),h('div',{class:'mu',style:'font-size:12px'},'소리가 안 나면 위 화면의 재생 버튼을 눌러요. 재생이 안 되는 영상은 퍼가기가 막힌 거예요.'));
     try{const r=await fetch('https://www.youtube.com/oembed?format=json&url='+encodeURIComponent('https://www.youtube.com/watch?v='+m[1])),j=await r.json();music.title=(j.title||'').slice(0,40)}catch(e){}
     chip.textContent='🎵 '+(music.title||'선택한 음악');mp.style.display='none'
   };
   mu.addEventListener('keydown',e=>{if(e.key==='Enter')setM()});
   mp.append(h('div',{class:'tools'},mu,h('button',{class:'sm',onclick:setM},'확인')),msg,h('div',{class:'mu',style:'font-size:12px'},'링크 끝에 ?t=60 을 붙이면 60초부터 재생돼요'));
-  const mrow=h('div',{class:'tools'},h('button',{class:'sm',onclick:()=>{mp.style.display=mp.style.display==='none'?'block':'none'}},'🎵 음악 추가'),h('button',{class:'sm',onclick:()=>{music=null;chip.textContent='';ytStop()}},'음악 지우기'));
+  const mrow=h('div',{class:'tools'},h('button',{class:'sm',onclick:()=>{mp.style.display=mp.style.display==='none'?'block':'none'}},'🎵 음악 추가'),h('button',{class:'sm',onclick:()=>{music=null;chip.textContent='';prev.replaceChildren()}},'음악 지우기'));
   btn.onclick=async()=>{btn.disabled=true;btn.textContent='올리는 중...';try{const img=await burn(base,items);await db.collection('stories').add({u:me,img,ts:Date.now(),...(music?{music}:{})});close()}catch(e){err(e);btn.textContent='실패 - 다시 시도';btn.disabled=false}};
-  overlay(h('div',{class:'sh'},h('h3',{},'새 스토리'),f,box,tools,mrow,mp,chip,btn,h('button',{onclick:close},'취소')))
+  overlay(h('div',{class:'sh'},h('h3',{},'새 스토리'),f,box,tools,mrow,mp,chip,prev,btn,h('button',{onclick:close},'취소')))
 }
 function newGroup(){
   const sel=new Set(),name=h('input',{placeholder:'그룹 이름 (선택)',maxlength:30}),msg=h('p',{class:'err'});
@@ -473,6 +475,8 @@ function gchat(gid){
     h('div',{class:'msgs'},...ms.map(m=>h('div',{class:'m'+(m.from===me?' me':'')},m.from!==me?h('small',{},m.from):null,rich(m.t)))),
     h('div',{class:'cw'},inp,h('button',{class:'lk',onclick:send},'보내기')))
 }
+let postLimit=60,unP;
+function subPosts(){if(unP)unP();unP=db.collection('posts').orderBy('ts','desc').limit(postLimit).onSnapshot(s=>{P=s.docs.map(d=>({id:d.id,...d.data()}));render()},err)}
 function overlay(c){close();const o=h('div',{id:'ov',onclick:e=>{if(e.target===o)close()}},c);document.body.append(o)}
 function close(){clearTimeout(stt);ytStop();const o=$('#ov');if(o)o.remove()}
 function sheet(kind){
