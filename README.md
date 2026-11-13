@@ -78,6 +78,13 @@ a{color:var(--bl);cursor:pointer}.err{color:#ed4956;margin:0;min-height:1em}.mu{
 .car img{flex:none;width:100%;scroll-snap-align:center;display:block;background:var(--bd)}
 .dots{display:flex;justify-content:center;gap:5px;padding:6px 0}.dots i{width:6px;height:6px;border-radius:50%;background:var(--bd)}.dots i.on{background:var(--bl)}
 .cnum{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.6);color:#fff;font-size:12px;border-radius:12px;padding:2px 8px}
+.sbox{position:relative;overflow:hidden;border-radius:8px}.sbox>img{width:100%;display:block}
+.ov-t{position:absolute;transform:translate(-50%,-50%);font-weight:800;touch-action:none;cursor:move;white-space:nowrap;user-select:none;-webkit-user-select:none}
+.mchip{position:absolute;top:calc(58px + env(safe-area-inset-top,0px));left:10px;background:rgba(0,0,0,.55);color:#fff;border-radius:16px;padding:4px 10px;font-size:12px;max-width:85%;cursor:pointer;z-index:2}
+.tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.sh .tools button.sm{border:1px solid var(--bd);color:var(--tx);padding:6px 10px}
+.sh button.cdot{width:26px;height:26px;border-radius:50%;border:2px solid var(--bd);padding:0}
+.mr{display:flex;gap:8px;align-items:center;padding:6px;border-radius:8px;cursor:pointer}.mr img{width:40px;height:40px;border-radius:6px}
 </style></head>
 <body>
 <header><span class="logo">💩 똥스타그램</span><button id="bell" class="nb" style="display:none" onclick="go('notif')">🔔<i id="bd-nt"></i></button></header>
@@ -114,7 +121,7 @@ function makeDb(url,key){
 const $=s=>document.querySelector(s);
 function h(t,a,...c){const e=document.createElement(t);for(const k in a||{}){if(k==='class')e.className=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k])}for(const x of c.flat())if(x!=null)e.append(x.nodeType?x:document.createTextNode(x));return e}
 const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}};
-let db,me=null,P=[],L=[],C=[],S=[],A=[],AC={},R=[],CL=[],SL=[],D=[],RS=[],AS=[],cmDraw=null,q='',view={t:'feed'},rt,stt;
+let db,me=null,P=[],L=[],C=[],S=[],A=[],AC={},R=[],CL=[],SL=[],D=[],RS=[],AS=[],G=[],cmDraw=null,q='',view={t:'feed'},rt,stt;
 const fr=()=>new Set(R.filter(r=>r.from===me).map(r=>r.to).concat(me));
 const err=e=>console.error(e);
 async function hash(id,pin){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('dung:'+id+':'+pin));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
@@ -156,6 +163,7 @@ function start(id){
   db.collection('slikes').onSnapshot(s=>{SL=s.docs.map(d=>d.data());render()},err);
   db.collection('dms').orderBy('ts','asc').onSnapshot(s=>{D=s.docs.map(d=>d.data());render()},err);
   db.collection('stories').where('u','==',me).onSnapshot(s=>{AS=s.docs.map(d=>({id:d.id,...d.data()}));render()},err);
+  db.collection('groups').onSnapshot(s=>{G=s.docs.map(d=>({id:d.id,...d.data()}));render()},err);
   db.collection('reels').orderBy('ts','desc').limit(40).onSnapshot(s=>{RS=s.docs.map(d=>({id:d.id,...d.data()}));render()},err);
   render()
 }
@@ -167,7 +175,7 @@ function render(){
   if(view.t==='reels'&&$('#main .reels')&&reelSig===RS.map(r=>r.id).join()){Object.values(reelUpd).forEach(f=>f());return}
   const a=document.activeElement;
   if(a&&a.classList&&a.classList.contains('cin')&&a.value){clearTimeout(rt);rt=setTimeout(render,1500);return}
-  $('#main').replaceChildren(view.t==='feed'?feed():view.t==='people'?people():view.t==='inbox'?inbox():view.t==='notif'?notifView():view.t==='reels'?reelsView():view.t==='dm'?chat(view.u):profile(view.u))
+  $('#main').replaceChildren(view.t==='feed'?feed():view.t==='people'?people():view.t==='inbox'?inbox():view.t==='notif'?notifView():view.t==='reels'?reelsView():view.t==='dm'?chat(view.u):view.t==='gdm'?gchat(view.u):profile(view.u))
 }
 function feed(){
   const F=fr(),ps=P.filter(p=>F.has(p.u)),sc=p=>L.filter(l=>l.p===p.id).length+C.filter(c=>c.p===p.id).length,now=Date.now();
@@ -233,11 +241,13 @@ const mark=id=>{if(SN[id])return;SN[id]=1;store.set('seen_'+me,JSON.stringify(SN
   snT=setTimeout(async()=>{try{const r=db.doc('seen/'+me),x=await r.get(),ids=new Set(Object.keys(SN));if(x.exists)(x.data().ids||[]).forEach(i=>ids.add(i));const live=new Set(S.map(v=>v.id));await r.set({ids:[...ids].filter(i=>i.startsWith('r_')?(!RS.length||RS.some(r=>'r_'+r.id===i)):(!S.length||live.has(i)))})}catch(e){err(e)}},1000)};
 function sendDm(to,t,re,x){if(to===me)return;db.collection('dms').add({from:me,to,t,ts:Date.now(),re:re||null,...(x||{})}).catch(err)}
 function inbox(){
-  const by={};D.filter(m=>m.from===me||m.to===me).forEach(m=>{const o=m.from===me?m.to:m.from;(by[o]=by[o]||[]).push(m)});
-  const us=Object.keys(by).sort((a,b)=>by[b][by[b].length-1].ts-by[a][by[a].length-1].ts);
-  return h('div',{},h('h3',{style:'padding:10px 14px;margin:0'},'메시지'),
-    ...(us.length?us.map(u=>{const l=by[u][by[u].length-1],un=by[u].some(m=>m.to===me&&m.ts>rdv(u));
-      return h('div',{class:'ph',style:'cursor:pointer',onclick:()=>go('dm',u)},av(u,44),h('div',{style:'flex:1;font-weight:'+(un?700:400)},h('b',{},u,vb(u)),h('div',{class:un?'':'mu'},(l.from===me?'나: ':'')+l.t)),un?h('span',{class:'dot'}):h('span',{class:'mu'},ago(l.ts)))}):[h('p',{class:'empty'},'아직 메시지가 없어요. 프로필에서 메시지를 보내봐요')]))
+  const by={},it=[];D.filter(m=>!m.g&&(m.from===me||m.to===me)).forEach(m=>{const o=m.from===me?m.to:m.from;(by[o]=by[o]||[]).push(m)});
+  Object.keys(by).forEach(u=>{const l=by[u][by[u].length-1];it.push({ts:l.ts,un:by[u].some(m=>m.to===me&&m.ts>rdv(u)),av:av(u,44),nm:[u,vb(u)],pv:(l.from===me?'나: ':'')+l.t,go:()=>go('dm',u)})});
+  G.filter(g=>g.members.includes(me)).forEach(g=>{const ms=D.filter(m=>m.g===g.id),l=ms[ms.length-1];
+    it.push({ts:l?l.ts:g.ts,un:ms.some(m=>m.from!==me&&m.ts>rdv('g_'+g.id)),av:h('div',{class:'av',style:'width:44px;height:44px;background:#8e8e8e;font-size:20px'},'👥'),nm:[g.name],pv:l?(l.from===me?'나':l.from)+': '+l.t:'새 그룹이에요',go:()=>go('gdm',g.id)})});
+  it.sort((a,b)=>b.ts-a.ts);
+  return h('div',{},h('div',{style:'display:flex;justify-content:space-between;align-items:center;padding:10px 14px'},h('h3',{style:'margin:0'},'메시지'),h('button',{class:'pri sm',onclick:newGroup},'👥 그룹 만들기')),
+    ...(it.length?it.map(x=>h('div',{class:'ph',style:'cursor:pointer',onclick:x.go},x.av,h('div',{style:'flex:1;font-weight:'+(x.un?700:400)},h('b',{},...x.nm),h('div',{class:x.un?'':'mu'},x.pv)),x.un?h('span',{class:'dot'}):h('span',{class:'mu'},ago(x.ts)))):[h('p',{class:'empty'},'아직 메시지가 없어요. 프로필에서 메시지를 보내거나 그룹을 만들어봐요')]))
 }
 function chat(u){
   const ms=D.filter(m=>(m.from===me&&m.to===u)||(m.from===u&&m.to===me));
@@ -342,7 +352,7 @@ function setRead(k,ts){
   if((RD[k]||0)>=ts)return;RD[k]=ts;store.set('rd_'+me,JSON.stringify(RD));updBadges();
   clearTimeout(rdT);rdT=setTimeout(async()=>{try{const r=db.doc('dmread/'+me),x=await r.get(),m={...RD};if(x.exists){const o=x.data().rd||{};for(const k in o)m[k]=Math.max(m[k]||0,o[k])}await r.set({rd:m})}catch(e){err(e)}},1000)
 }
-const unreadDm=()=>{const by={};D.filter(m=>m.to===me&&m.ts>rdv(m.from)).forEach(m=>by[m.from]=1);return Object.keys(by)};
+const unreadDm=()=>{const by={};D.filter(m=>m.to===me&&m.ts>rdv(m.from)).forEach(m=>by[m.from]=1);G.filter(g=>g.members.includes(me)).forEach(g=>{if(D.some(m=>m.g===g.id&&m.from!==me&&m.ts>rdv('g_'+g.id)))by['g_'+g.id]=1});return Object.keys(by)};
 const ment=t=>new RegExp('@'+me.replace(/[.\-]/g,'\\$&')+'(?![a-zA-Z0-9_-])','i').test(t||'');
 function notifs(){
   const out=[],mP=new Set(P.filter(p=>p.u===me).map(p=>p.id)),mR=new Set(RS.filter(r=>r.u===me).map(r=>r.id)),mC=new Map(C.filter(c=>c.u===me).map(c=>[c.id,c]));
@@ -384,9 +394,83 @@ function carousel(p,dbl){
   requestAnimationFrame(()=>{tr.style.scrollBehavior='auto';tr.scrollLeft=(slide[p.id]||0)*tr.clientWidth});
   return h('div',{class:'cwr'},tr,n,dots)
 }
+const sa=new Audio();sa.preload='auto';
+function playMusic(m,chip){
+  sa.src=m.url;sa.loop=true;
+  const ok=()=>{chip.textContent='🎵 '+m.title+' · '+m.artist},no=()=>{chip.textContent='🔇 눌러서 음악 켜기'};
+  chip.onclick=()=>{if(sa.paused)sa.play().then(ok).catch(no);else{sa.pause();no()}};
+  sa.play().then(ok).catch(no)
+}
+async function itunes(q){
+  const r=await fetch('https://itunes.apple.com/search?media=music&entity=song&limit=10&country=KR&term='+encodeURIComponent(q)),j=await r.json();
+  return j.results.filter(x=>x.previewUrl).map(x=>({title:x.trackName,artist:x.artistName,art:x.artworkUrl60,url:x.previewUrl}))
+}
+function makeText(box,it){
+  const el=h('div',{class:'ov-t'},it.t);
+  el.style.color=it.c;el.style.fontSize=Math.round(it.s*(box.clientWidth||300))+'px';
+  el.style.textShadow='0 0 6px '+(it.c==='#000000'?'rgba(255,255,255,.9)':'rgba(0,0,0,.8)');
+  const pos=()=>{el.style.left=it.x*100+'%';el.style.top=it.y*100+'%'};pos();
+  el.addEventListener('pointerdown',e=>{
+    el.setPointerCapture(e.pointerId);const r=box.getBoundingClientRect();
+    const mv=ev=>{it.x=Math.min(1,Math.max(0,(ev.clientX-r.left)/r.width));it.y=Math.min(1,Math.max(0,(ev.clientY-r.top)/r.height));pos()};
+    const up=()=>{el.removeEventListener('pointermove',mv);el.removeEventListener('pointerup',up)};
+    el.addEventListener('pointermove',mv);el.addEventListener('pointerup',up)});
+  box.append(el)
+}
+async function burn(url,items){
+  if(!items.length)return url;
+  const img=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=url});
+  const cv=document.createElement('canvas');cv.width=img.width;cv.height=img.height;const c=cv.getContext('2d');c.drawImage(img,0,0);
+  c.textAlign='center';c.textBaseline='middle';
+  items.forEach(it=>{const fs=it.s*cv.width;c.font='800 '+fs+'px -apple-system,"Noto Sans KR",sans-serif';c.fillStyle=it.c;c.shadowColor=it.c==='#000000'?'rgba(255,255,255,.9)':'rgba(0,0,0,.8)';c.shadowBlur=fs*.2;c.fillText(it.t,it.x*cv.width,it.y*cv.height)});
+  let q=.85,d;do{d=cv.toDataURL('image/jpeg',q);q-=.1}while(d.length>260000&&q>.3);return d
+}
+function storySheet(){
+  let base=null,music=null,col='#ffffff',sz=.07;const items=[];
+  const pv=h('img',{}),box=h('div',{class:'sbox',style:'display:none'},pv),tools=h('div',{class:'tools',style:'display:none'}),mp=h('div',{style:'display:none'}),chip=h('div',{class:'mu',style:'text-align:center'});
+  const btn=h('button',{class:'pri',disabled:''},'공유'),f=h('input',{type:'file',accept:'image/*'});
+  f.onchange=async()=>{if(!f.files[0])return;try{base=await shrink(f.files[0],720,200000);pv.src=base;box.style.display='block';tools.style.display='flex';items.length=0;[...box.querySelectorAll('.ov-t')].forEach(x=>x.remove());btn.disabled=false}catch(e){err(e)}};
+  const ti=h('input',{placeholder:'텍스트 입력',maxlength:60,style:'flex:1;min-width:120px'});
+  const add=()=>{const t=ti.value.trim();if(!t||!base)return;const it={t,x:.5,y:.5,c:col,s:sz};items.push(it);makeText(box,it);ti.value=''};
+  tools.append(ti,h('button',{class:'sm',onclick:add},'Aa 추가'),
+    ...['#ffffff','#000000','#ffd400','#ff4d8d','#4dd2ff'].map(c=>h('button',{class:'cdot',style:'background:'+c,onclick:()=>{col=c}})),
+    h('button',{class:'sm',onclick:()=>{sz=.05}},'작게'),h('button',{class:'sm',onclick:()=>{sz=.07}},'보통'),h('button',{class:'sm',onclick:()=>{sz=.1}},'크게'),
+    h('button',{class:'sm',onclick:()=>{if(items.pop())box.lastChild.remove()}},'↩ 지우기'));
+  const q=h('input',{placeholder:'노래 검색 (제목/가수)',maxlength:60}),res=h('div',{style:'max-height:30vh;overflow:auto'});
+  const search=async()=>{const t=q.value.trim();if(!t)return;res.textContent='검색 중...';
+    try{const r=await itunes(t);res.replaceChildren(...(r.length?r.map(m=>h('div',{class:'mr',onclick:()=>{music=m;chip.textContent='🎵 '+m.title+' · '+m.artist;sa.src=m.url;sa.loop=true;sa.play().catch(err);mp.style.display='none'}},h('img',{src:m.art}),h('div',{},h('b',{},m.title),h('div',{class:'mu'},m.artist)))):[h('p',{class:'mu'},'결과가 없어요')]))}catch(e){err(e);res.textContent='검색에 실패했어요'}};
+  q.addEventListener('keydown',e=>{if(e.key==='Enter')search()});
+  mp.append(h('div',{class:'tools'},q,h('button',{class:'sm',onclick:search},'검색')),res);
+  const mrow=h('div',{class:'tools'},h('button',{class:'sm',onclick:()=>{mp.style.display=mp.style.display==='none'?'block':'none'}},'🎵 음악 추가'),h('button',{class:'sm',onclick:()=>{music=null;chip.textContent='';sa.pause()}},'음악 지우기'));
+  btn.onclick=async()=>{btn.disabled=true;btn.textContent='올리는 중...';try{const img=await burn(base,items);await db.collection('stories').add({u:me,img,ts:Date.now(),...(music?{music}:{})});close()}catch(e){err(e);btn.textContent='실패 - 다시 시도';btn.disabled=false}};
+  overlay(h('div',{class:'sh'},h('h3',{},'새 스토리'),f,box,tools,mrow,mp,chip,btn,h('button',{onclick:close},'취소')))
+}
+function newGroup(){
+  const sel=new Set(),name=h('input',{placeholder:'그룹 이름 (선택)',maxlength:30}),msg=h('p',{class:'err'});
+  const rows=A.filter(u=>u!==me).map(u=>{const b=h('button',{class:'sm'},'선택');b.onclick=()=>{sel.has(u)?sel.delete(u):sel.add(u);b.textContent=sel.has(u)?'✓ 선택됨':'선택';b.className=sel.has(u)?'pri sm':'sm'};return h('div',{class:'ph'},av(u,36),h('b',{},u,vb(u)),b)});
+  const ok=h('button',{class:'pri'},'그룹 만들기');
+  ok.onclick=async()=>{if(!sel.size){msg.textContent='초대할 사람을 선택해줘요';return}ok.disabled=true;const members=[me,...sel];
+    try{await db.collection('groups').add({name:name.value.trim()||members.join(', ').slice(0,30),members,by:me,ts:Date.now()});close();go('inbox')}catch(e){err(e);ok.disabled=false}};
+  overlay(h('div',{class:'sh'},h('h3',{},'새 그룹 채팅'),name,...rows,msg,ok,h('button',{onclick:close},'취소')))
+}
+function gchat(gid){
+  const g=G.find(x=>x.id===gid);
+  if(!g||!g.members.includes(me))return h('div',{},h('a',{onclick:()=>go('inbox')},'‹ 뒤로'),h('p',{class:'empty'},'그룹을 찾을 수 없어요'));
+  const ms=D.filter(m=>m.g===gid),lm=Math.max(0,...ms.filter(m=>m.from!==me).map(m=>m.ts));if(lm>rdv('g_'+gid))setRead('g_'+gid,lm);
+  const inp=h('input',{class:'cin',placeholder:'메시지 보내기...',maxlength:500});
+  const send=()=>{const t=inp.value.trim();if(!t)return;inp.value='';db.collection('dms').add({from:me,g:gid,t,ts:Date.now()}).catch(err)};
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+  const leave=()=>{if(confirm('그룹에서 나갈까요?'))db.doc('groups/'+gid).update({members:g.members.filter(x=>x!==me)}).then(()=>go('inbox')).catch(err)};
+  setTimeout(()=>scrollTo(0,document.body.scrollHeight),0);
+  return h('div',{},h('div',{class:'ph'},h('a',{onclick:()=>go('inbox')},'‹ 뒤로'),h('b',{},'👥 '+g.name),h('a',{onclick:leave,style:'color:#ed4956;font-size:12px'},'나가기')),
+    h('div',{class:'mu',style:'padding:0 12px;font-size:12px'},g.members.join(', ')),
+    h('div',{class:'msgs'},...ms.map(m=>h('div',{class:'m'+(m.from===me?' me':'')},m.from!==me?h('small',{},m.from):null,rich(m.t)))),
+    h('div',{class:'cw'},inp,h('button',{class:'lk',onclick:send},'보내기')))
+}
 function overlay(c){close();const o=h('div',{id:'ov',onclick:e=>{if(e.target===o)close()}},c);document.body.append(o)}
-function close(){clearTimeout(stt);const o=$('#ov');if(o)o.remove()}
+function close(){clearTimeout(stt);sa.pause();const o=$('#ov');if(o)o.remove()}
 function sheet(kind){
+  if(kind==='story')return storySheet();
   let data=[];
   const multi=kind==='post',pv=h('div',{class:'pvs'}),cap=h('input',{placeholder:'문구 입력...',maxlength:150});
   const btn=h('button',{class:'pri',disabled:''},'공유');
@@ -408,11 +492,13 @@ function openStory(u,i){
   inp.addEventListener('focus',()=>clearTimeout(stt));
   const heart=h('button',{},liked?'❤️':'🤍');
   heart.onclick=()=>{const r=db.doc('slikes/'+s.id+'_'+me);if(liked)r.delete().catch(err);else{r.set({s:s.id,u:me}).catch(err);sendDm(u,'❤️','스토리 좋아요',{sid:s.id})}liked=!liked;heart.textContent=liked?'❤️':'🤍'};
+  const chip=s.music?h('div',{class:'x mchip'},'🎵 '+s.music.title+' · '+s.music.artist):null;
   const bar=u===me?h('span',{},'❤️ '+sl.length+(sl.length?' ('+sl.map(x=>x.u).join(', ')+')':'')):[inp,heart];
   overlay(h('div',{class:'sv',onclick:e=>{if(e.target.closest('.x'))return;const r=e.currentTarget.getBoundingClientRect();e.clientX-r.left<r.width/3?openStory(u,Math.max(0,i-1)):openStory(u,i+1)}},
     h('div',{class:'bars'},...l.map((_,k)=>h('i',{class:k<=i?'on':''}))),
     h('div',{class:'sh2'},av(u,30),h('b',{},u,vb(u)),h('span',{},ago(s.ts)),u===me?h('span',{class:'x',onclick:()=>{db.doc('stories/'+s.id).delete().catch(err);close()}},'삭제'):null,h('span',{class:'x',onclick:close},'✕')),
-    h('img',{src:s.img}),h('div',{class:'x sb2'},bar)));
+    h('img',{src:s.img}),chip,h('div',{class:'x sb2'},bar)));
+  if(s.music)playMusic(s.music,chip);
   stt=setTimeout(()=>openStory(u,i+1),4500)
 }
 (async()=>{
